@@ -1,0 +1,72 @@
+project: evodef_rag
+seed: 20260921
+
+models:
+  generator: qwen3.5:9b
+  generator_fallback: qwen3:8b
+  embedder: qwen3-embedding:0.6b
+  embedder_strong_optional: qwen3-embedding:4b
+
+ollama:
+  base_url: http://localhost:11434
+  temperature: 0
+  max_schema_retries: 1
+
+retrieval:
+  bm25_topk: 20
+  dense_topk: 20
+  rrf_k: 60
+  fused_topk_before_rerank: 10
+  final_topk: 5
+  targeted_queries_max: 3
+  targeted_new_chunks_max: 3
+  targeted_rounds: 1
+
+memory:
+  regression_epsilon: 0.0
+  gate_batch_size: 5
+  gap_prune_min_trials: 3
+  gap_prune_min_success_rate: 0.25
+
+splits:
+  evolution_train_fraction: 0.8
+  dev_fraction: 0.2
+  preserve_official_test: true
+  group_by_statute_family: true
+
+prompt_tuning:
+  formalization: [F0, F1, F2, F3]
+  query: [Q0, Q1, Q2]
+  grounding: [G0, G1]
+  objective:
+    downstream_accuracy: 0.50
+    retrieval_recall_at_5: 0.25
+    schema_valid_rate: 0.15
+    source_quote_validity: 0.10
+
+main_methods:
+  - direct_llm
+  - vanilla_rag
+  - prompted_rag
+  - static_nesy_rag
+  - evodef_full
+
+ablations:
+  - evodef_full
+  - no_proof_gap
+  - no_exception_query
+  - no_memory
+  - no_regression_gate
+
+evolution_checkpoints: [0, 25, 50, 75, 100]
+
+metrics:
+  classification: [accuracy, macro_f1]
+  retrieval: [recall_at_1, recall_at_3, recall_at_5, mrr, hit_at_5, complete_evidence_at_5]
+  xai: [proof_executable_rate, source_link_coverage, counterfactual_validity, exception_coverage]
+  efficiency: [llm_calls, formalization_calls, latency_s, memory_hit_rate]
+
+statistics:
+  mcnemar: true
+  paired_bootstrap_resamples: 10000
+  confidence_level: 0.95

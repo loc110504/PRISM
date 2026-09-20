@@ -1,0 +1,19 @@
+{
+  "type": "object",
+  "properties": {
+    "facts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "predicate": {"type": "string"},
+          "status": {"type": "string", "enum": ["TRUE", "FALSE", "UNKNOWN"]},
+          "source_quote": {"type": "string"},
+          "confidence": {"type": "number", "minimum": 0, "maximum": 1}
+        },
+        "required": ["predicate", "status", "source_quote", "confidence"]
+      }
+    }
+  },
+  "required": ["facts"]
+}

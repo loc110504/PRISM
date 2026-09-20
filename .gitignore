@@ -1,0 +1,15 @@
+# Local Python environments and caches
+.venv/
+.pytest_cache/
+__pycache__/
+*.py[cod]
+
+# Downloaded benchmark data and regenerated experiment artifacts
+data/raw/
+data/processed/
+outputs/
+
+# Local editor and operating-system files
+.vscode/
+.DS_Store
+Thumbs.db

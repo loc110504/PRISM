@@ -1,0 +1,22 @@
+SYSTEM
+You label retrieved statutory passages for relevance to a legal question. You do not answer the question. You do not invent statute text.
+
+USER
+FACT PATTERN:
+{{facts_text}}
+
+ASSERTION:
+{{assertion}}
+
+CANDIDATE PASSAGES:
+{{candidate_passages}}
+
+For each candidate passage, assign exactly one label:
+- DIRECT: directly states a rule needed to decide the assertion.
+- EXCEPTION: could defeat or limit a rule relevant to the assertion.
+- DEFINITION: defines a term/predicate used by a relevant rule.
+- REFERENCE: a provision explicitly referenced by other relevant text.
+- IRRELEVANT: not needed to decide the assertion.
+
+Label every candidate exactly once, in the order given, using its chunk_id.
+Return JSON only according to the supplied schema.

@@ -1,0 +1,138 @@
+# Per-method component toggles consumed by src/evodef/pipeline.py.
+#
+# Every main method and every ablation is expressed as the SAME pipeline with
+# different stages switched on/off, so that comparisons isolate one
+# mechanism at a time (03_IMPLEMENTATION_SPEC / 05_EXPERIMENT_PLAN).
+#
+# Fields:
+#   retrieval_query_variant: none | raw | issue_query   (none = no retrieval at all)
+#   exception_focused_query: whether the 3rd issue-query and gap-query
+#     rewrites explicitly target exceptions/defeaters (Q2 behavior; ablated
+#     by no_exception_query)
+#   llm_rerank: whether the top-10 fused candidates are LLM-reranked to top-5
+#   symbolic_reasoning: whether formalization + fact grounding + PYTHEN are run
+#   targeted_retrieval: whether one proof-gap-guided second retrieval round runs
+#   use_norm_memory / use_gap_memory: whether persistent memories are read
+#     (frozen at test time; only writable during scripts/03_run_evolution.py)
+#   regression_gate: whether candidate memory updates must pass the replay
+#     gate during evolution (only meaningful when use_norm_memory/use_gap_memory
+#     are being written to, i.e. during evolution-train)
+
+methods:
+  direct_llm:
+    description: "No retrieval. LLM answers from facts + assertion only."
+    retrieval_query_variant: none
+    exception_focused_query: false
+    llm_rerank: false
+    symbolic_reasoning: false
+    targeted_retrieval: false
+    use_norm_memory: false
+    use_gap_memory: false
+    regression_gate: false
+
+  vanilla_rag:
+    description: "Hybrid retrieval (raw query) top-5 -> LLM answers directly from retrieved text."
+    retrieval_query_variant: raw
+    exception_focused_query: false
+    llm_rerank: false
+    symbolic_reasoning: false
+    targeted_retrieval: false
+    use_norm_memory: false
+    use_gap_memory: false
+    regression_gate: false
+
+  prompted_rag:
+    description: "Q2 query expansion + LLM rerank -> LLM answers directly. No symbolic engine."
+    retrieval_query_variant: issue_query
+    exception_focused_query: true
+    llm_rerank: true
+    symbolic_reasoning: false
+    targeted_retrieval: false
+    use_norm_memory: false
+    use_gap_memory: false
+    regression_gate: false
+
+  static_nesy_rag:
+    description: "Same retrieval as prompted_rag -> formalize -> ground -> PYTHEN proof. No targeted retrieval, no persistent memory."
+    retrieval_query_variant: issue_query
+    exception_focused_query: true
+    llm_rerank: true
+    symbolic_reasoning: true
+    targeted_retrieval: false
+    use_norm_memory: false
+    use_gap_memory: false
+    regression_gate: false
+
+  evodef_full:
+    description: "Full method: retrieval + symbolic proof + one proof-gap targeted retrieval round + frozen Norm/Gap memory."
+    retrieval_query_variant: issue_query
+    exception_focused_query: true
+    llm_rerank: true
+    symbolic_reasoning: true
+    targeted_retrieval: true
+    use_norm_memory: true
+    use_gap_memory: true
+    regression_gate: true
+
+  # --- Ablations (05_EXPERIMENT_PLAN.md Experiment 2) ---
+  # Each ablation is evodef_full with exactly one mechanism removed.
+
+  no_proof_gap:
+    description: "evodef_full minus the proof-gap-guided targeted retrieval round."
+    retrieval_query_variant: issue_query
+    exception_focused_query: true
+    llm_rerank: true
+    symbolic_reasoning: true
+    targeted_retrieval: false
+    use_norm_memory: true
+    use_gap_memory: true
+    regression_gate: true
+
+  no_exception_query:
+    description: "evodef_full minus exception-focused query generation (issue-query 3rd query and gap-query exception targeting)."
+    retrieval_query_variant: issue_query
+    exception_focused_query: false
+    llm_rerank: true
+    symbolic_reasoning: true
+    targeted_retrieval: true
+    use_norm_memory: true
+    use_gap_memory: true
+    regression_gate: true
+
+  no_memory:
+    description: "evodef_full with empty Norm Memory and Gap Policy Memory at test time (every case formalized from scratch, gap queries built only from deterministic seed terms)."
+    retrieval_query_variant: issue_query
+    exception_focused_query: true
+    llm_rerank: true
+    symbolic_reasoning: true
+    targeted_retrieval: true
+    use_norm_memory: false
+    use_gap_memory: false
+    regression_gate: true
+
+  no_regression_gate:
+    description: "evodef_full evaluated with a checkpoint evolved WITHOUT the regression gate (every source-valid memory update accepted)."
+    retrieval_query_variant: issue_query
+    exception_focused_query: true
+    llm_rerank: true
+    symbolic_reasoning: true
+    targeted_retrieval: true
+    use_norm_memory: true
+    use_gap_memory: true
+    regression_gate: false
+
+# Prompt-tuning grid variants (Experiment 0). Each key maps a variant id to
+# the flags consumed by src/evodef/formalization and src/evodef/retrieval.
+prompt_variants:
+  formalization:
+    F0: {demonstrations: 0, concise_operator_instructions: false, forbid_cross_reference_resolution: false}
+    F1: {demonstrations: 0, concise_operator_instructions: true, forbid_cross_reference_resolution: false}
+    F2: {demonstrations: 2, concise_operator_instructions: true, forbid_cross_reference_resolution: false}
+    F3: {demonstrations: 2, concise_operator_instructions: true, forbid_cross_reference_resolution: true}
+  query:
+    Q0: {mode: raw}
+    Q1: {mode: issue_query, exception_focused_query: false}
+    Q2: {mode: issue_query, exception_focused_query: true}
+  grounding:
+    G0: {mode: all_case_facts}
+    G1: {mode: predicate_targeted}

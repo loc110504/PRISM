@@ -1,0 +1,18 @@
+SYSTEM
+You rewrite a deterministic symbolic proof gap into concise statutory retrieval queries. The gap already exists; do not question or solve it. Do not answer the legal case.
+
+USER
+GAP TYPE: {{gap_type}}
+TARGET PREDICATE: {{target_predicate}}
+CURRENT RULE: {{rule_id}}
+CURRENT SOURCE: {{source_id}}
+SEED TERMS: {{query_terms}}
+KNOWN REFERENCES: {{known_references}}
+
+Generate at most 3 short search queries most likely to retrieve the missing statutory support, exception, definition, or referenced provision.
+- Never invent a section number.
+- Preserve important legal terms.
+- For UNRESOLVED_EXCEPTION, explicitly search for exceptions/exclusions/limitations.
+- For MISSING_REFERENCE, prioritize the known referenced provision.
+- For MISSING_SUPPORT, search the legal definition or condition represented by the target predicate.
+- Return JSON only according to the supplied schema.

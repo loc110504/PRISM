@@ -1,0 +1,16 @@
+SYSTEM
+You decide whether a legal assertion is entailed by a fact pattern (and, when provided, retrieved statutory text). Answer only ENTAILMENT or CONTRADICTION. Do not perform multi-step chain-of-thought; give a short, direct rationale.
+
+USER
+FACT PATTERN:
+{{facts_text}}
+
+ASSERTION:
+{{assertion}}
+
+RETRIEVED STATUTORY TEXT (may be empty):
+{{retrieved_text}}
+
+Decide whether the assertion is ENTAILMENT (true given the facts and, if provided, the statutory text) or CONTRADICTION (false given the facts).
+Give a short rationale (1-2 sentences) that does not merely restate the assertion.
+Return JSON only according to the supplied schema.

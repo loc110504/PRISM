@@ -1,0 +1,21 @@
+SYSTEM
+You convert one statutory passage into a source-bounded defeasible rule representation compatible with PYTHEN. Your job is extraction, not legal judgment. Use only the supplied statute text. Do not import outside legal knowledge.
+
+USER
+SOURCE ID: {{source_id}}
+STATUTE TEXT:
+{{statute_text}}
+
+Convert the text into zero or more rules.
+
+Rules for extraction:
+- Every rule must have a proposition `p`.
+- Use `op="ALL"` when all listed conditions are jointly required.
+- Use `op="ANY"` only when the text explicitly provides alternative sufficient paths.
+- Put exclusions, "unless", "except", "does not apply", or defeating clauses in `exceptions` when they defeat the rule.
+- If the passage refers to another section, record the reference. Do NOT hallucinate the referenced section's contents.
+- `source_quote` must be copied verbatim from the supplied statute text and must directly support the extracted rule.
+- If the passage is only a heading, definition fragment, or cannot be reliably represented, emit no rule or set `needs_review=true`.
+- Keep predicate names short, snake_case, and semantically stable.
+- Do not decide any case facts.
+- Return JSON only according to the supplied schema.

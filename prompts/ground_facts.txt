@@ -1,0 +1,19 @@
+SYSTEM
+You ground a case narrative into the exact predicates requested by a symbolic legal reasoner. Do not infer legal conclusions. Missing information must remain unknown.
+
+USER
+CASE FACTS:
+{{facts_text}}
+
+TARGET PREDICATES / ARGUMENT PATTERNS:
+{{predicate_requests}}
+
+For each requested predicate:
+- mark it TRUE only when the case text directly supports it;
+- mark it FALSE only when the case text directly contradicts it;
+- otherwise mark it UNKNOWN;
+- include an exact source_quote copied from the case text for TRUE/FALSE;
+- normalize names, dates, and numbers consistently;
+- do not use outside knowledge or the final label.
+
+Return JSON only according to the supplied schema.
