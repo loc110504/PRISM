@@ -27,6 +27,7 @@ class FakeOllamaBackend:
     responses: list[dict[str, Any]] = field(default_factory=list)
     handler: Callable[[str, list[dict[str, str]]], dict[str, Any]] | None = None
     embed_vectors: dict[str, list[float]] | None = None
+    embed_handler: Callable[[str, list[str]], dict[str, Any]] | None = None
     calls: list[dict[str, Any]] = field(default_factory=list)
 
     def chat(self, model: str, messages: list[dict[str, str]], format: Any = None, options: dict | None = None) -> dict:
@@ -39,6 +40,8 @@ class FakeOllamaBackend:
 
     def embed(self, model: str, input: list[str]) -> dict:
         self.calls.append({"model": model, "input": input})
+        if self.embed_handler is not None:
+            return self.embed_handler(model, input)
         if self.embed_vectors is not None:
             return {"embeddings": [self.embed_vectors.get(text, [0.0, 0.0]) for text in input]}
         # deterministic hash-based fake embedding

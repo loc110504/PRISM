@@ -57,6 +57,8 @@ def build_resources(
         base_url=os.environ.get("OLLAMA_HOST", config["ollama"]["base_url"]),
         max_schema_retries=config["ollama"]["max_schema_retries"],
         request_timeout_s=config["ollama"]["request_timeout_s"],
+        max_network_retries=config["ollama"].get("max_network_retries", 2),
+        network_retry_backoff_s=config["ollama"].get("network_retry_backoff_s", 5.0),
     )
     corpus = {c.chunk_id: c for c in chunks}
     bm25 = BM25Index.build(chunks)

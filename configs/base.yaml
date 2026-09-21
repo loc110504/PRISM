@@ -35,7 +35,13 @@ ollama:
   base_url: http://localhost:11434
   temperature: 0
   max_schema_retries: 1
-  request_timeout_s: 300
+  request_timeout_s: 600
+  # Retries on dropped connections / read timeouts (not schema failures);
+  # see src/evodef/ollama_client.py OllamaClient._call_with_retry. A single
+  # slow model reload or brief server hiccup should not crash a multi-hour
+  # grid search or evolution run.
+  max_network_retries: 2
+  network_retry_backoff_s: 5.0
 
 retrieval:
   bm25_topk: 20

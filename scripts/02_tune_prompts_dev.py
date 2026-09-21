@@ -49,12 +49,28 @@ def main() -> None:
     grid = list(
         product(config["prompt_tuning"]["formalization"], config["prompt_tuning"]["query"], config["prompt_tuning"]["grounding"])
     )
-    print(f"Tuning grid: {len(grid)} combinations x {len(dev_cases)} dev cases")
 
-    rows = []
-    best = None
+    results_path = resolve_path(config, "results_dir") / "prompt_tuning_grid.csv"
 
-    for f_id, q_id, g_id in grid:
+    # Resume support: a full grid run issues thousands of sequential LLM
+    # calls, so even with network retries (see ollama_client.py) a very
+    # long run can still be interrupted. Re-reading already-completed
+    # combinations from a prior partial run means a restart never repeats
+    # (and re-pays for) work that already succeeded. Delete
+    # results_path to force a full re-run.
+    rows: list[dict] = []
+    done: set[tuple[str, str, str]] = set()
+    if results_path.exists():
+        rows = pd.read_csv(results_path).to_dict("records")
+        done = {(r["formalization_id"], r["query_id"], r["grounding_id"]) for r in rows}
+        print(f"Resuming from {results_path}: {len(done)}/{len(grid)} combinations already completed")
+
+    remaining = [combo for combo in grid if combo not in done]
+    print(f"Tuning grid: {len(grid)} combinations x {len(dev_cases)} dev cases ({len(remaining)} remaining)")
+
+    best = max(rows, key=lambda r: r["objective"]) if rows else None
+
+    for f_id, q_id, g_id in remaining:
         formalization_variant = variants["formalization"][f_id]
         grounding_variant = variants["grounding"][g_id]
         exception_focused = variants["query"][q_id].get("exception_focused_query", False)
@@ -98,8 +114,11 @@ def main() -> None:
         if best is None or objective > best["objective"]:
             best = row
 
-    results_path = resolve_path(config, "results_dir") / "prompt_tuning_grid.csv"
-    pd.DataFrame(rows).to_csv(results_path, index=False)
+        # Checkpoint after every combination so a failure later in the grid
+        # (e.g. a case that exhausts every network retry) never discards
+        # already-completed work.
+        pd.DataFrame(rows).to_csv(results_path, index=False)
+
     print(f"Wrote {results_path}")
 
     frozen = {
