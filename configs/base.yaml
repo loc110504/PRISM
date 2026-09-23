@@ -55,7 +55,9 @@ retrieval:
 
 memory:
   regression_epsilon: 0.0
-  gate_batch_size: 5
+  # A 25-case batch keeps replay-gated evolution tractable for the
+  # budgeted 50-case run: two gate decisions rather than ten.
+  gate_batch_size: 25
   gap_prune_min_trials: 3
   gap_prune_min_success_rate: 0.25
 
