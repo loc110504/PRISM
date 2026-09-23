@@ -8,6 +8,14 @@ cd "$REPO_DIR"
 source .venv/bin/activate
 export PYTHONUNBUFFERED=1
 
+# Python loads .env for every stage. Source it here as well so this shell can
+# decide whether an Ollama endpoint is required.
+if [[ -f .env ]]; then
+  set -a
+  source .env
+  set +a
+fi
+
 # Optional fast path for a previously prepared corpus and an existing DEV
 # prompt-tuning grid.  Defaults preserve the original exhaustive workflow.
 # Example:
@@ -21,7 +29,7 @@ if [[ -n "$EVOLUTION_MAX_CASES" ]]; then
   EVOLUTION_ARGS=(--max-evolution-cases "$EVOLUTION_MAX_CASES")
 fi
 
-if [[ -z "${OLLAMA_HOST:-}" ]]; then
+if [[ "${LLM_PROVIDER:-ollama}" != "openai" && -z "${OLLAMA_HOST:-}" ]]; then
   echo "Set OLLAMA_HOST to the reachable Ollama endpoint, e.g. http://host:11434" >&2
   exit 2
 fi

@@ -1,4 +1,4 @@
-"""Thin wrapper around the Ollama API (03_IMPLEMENTATION_SPEC.md #3).
+"""Provider-neutral LLM wrapper (03_IMPLEMENTATION_SPEC.md #3).
 
 Every LLM call in the pipeline goes through `OllamaClient.chat_json`,
 `chat_text`, or `embed` so that retries, hashing, latency, and token
@@ -77,12 +77,18 @@ class OllamaClient:
     request_timeout_s: int = 300
     max_network_retries: int = 2
     network_retry_backoff_s: float = 5.0
+    provider: str = "ollama"
     _backend: Any = None
     last_calls: list[LLMCallRecord] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         if self._backend is None:
-            self._backend = _RealOllamaBackend(self.base_url, self.request_timeout_s)
+            if self.provider == "ollama":
+                self._backend = _RealOllamaBackend(self.base_url, self.request_timeout_s)
+            elif self.provider == "openai":
+                self._backend = _RealOpenAIBackend(self.request_timeout_s)
+            else:
+                raise ValueError(f"Unsupported provider: {self.provider!r}")
 
     # ------------------------------------------------------------------
     def _call_with_retry(self, fn: Any, /, **kwargs: Any) -> dict[str, Any] | None:
@@ -274,3 +280,44 @@ class _RealOllamaBackend:
     def embed(self, model: str, input: list[str]) -> dict:
         result = self._client.embed(model=model, input=input)
         return dict(result)
+
+
+class _RealOpenAIBackend:
+    """Adapts the OpenAI SDK to the small Ollama-shaped transport interface."""
+
+    def __init__(self, timeout_s: int):
+        try:
+            from openai import OpenAI
+        except ImportError as exc:  # pragma: no cover - exercised by user setup
+            raise RuntimeError("OpenAI provider requires `pip install -e .` to install the openai package.") from exc
+        api_key = os.environ.get("OPENAI_API_KEY")
+        if not api_key:
+            raise RuntimeError("OPENAI_API_KEY is missing. Add it to .env (see .env.example).")
+        kwargs: dict[str, Any] = {"api_key": api_key, "timeout": timeout_s}
+        if base_url := os.environ.get("OPENAI_BASE_URL"):
+            kwargs["base_url"] = base_url
+        self._client = OpenAI(**kwargs)
+
+    def chat(self, model: str, messages: list[dict[str, str]], format: Any = None, options: dict | None = None) -> dict:
+        kwargs: dict[str, Any] = {
+            "model": model,
+            "messages": messages,
+            "temperature": (options or {}).get("temperature", 0),
+        }
+        if format is not None:
+            kwargs["response_format"] = {
+                "type": "json_schema",
+                "json_schema": {"name": "evodef_response", "schema": format, "strict": False},
+            }
+        result = self._client.chat.completions.create(**kwargs)
+        message = result.choices[0].message
+        usage = result.usage
+        return {
+            "message": {"content": message.content or ""},
+            "prompt_eval_count": usage.prompt_tokens if usage else None,
+            "eval_count": usage.completion_tokens if usage else None,
+        }
+
+    def embed(self, model: str, input: list[str]) -> dict:
+        result = self._client.embeddings.create(model=model, input=input, encoding_format="float")
+        return {"embeddings": [item.embedding for item in result.data]}

@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import random
 import re
 from pathlib import Path
@@ -24,6 +25,22 @@ def load_yaml(path: str | Path) -> dict[str, Any]:
         return yaml.safe_load(f)
 
 
+def load_dotenv(path: str | Path) -> None:
+    """Load simple KEY=VALUE entries without overwriting exported variables."""
+    path = Path(path)
+    if not path.exists():
+        return
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip()
+        value = value.strip().strip('"').strip("'")
+        if key:
+            os.environ.setdefault(key, value)
+
+
 def load_config(
     base_path: str | Path = "configs/base.yaml",
     experiments_path: str | Path = "configs/experiments.yaml",
@@ -34,10 +51,18 @@ def load_config(
     `root` defaults to the repo root so scripts can be invoked from anywhere.
     """
     root = Path(root) if root is not None else REPO_ROOT
+    load_dotenv(root / ".env")
     base = load_yaml(root / base_path)
     experiments = load_yaml(root / experiments_path)
     base["_experiments"] = experiments
     base["_root"] = str(root)
+    provider = os.environ.get("LLM_PROVIDER", base.get("llm", {}).get("provider", "ollama")).lower()
+    if provider not in {"ollama", "openai"}:
+        raise ValueError(f"Unsupported LLM_PROVIDER={provider!r}; expected 'ollama' or 'openai'.")
+    base.setdefault("llm", {})["provider"] = provider
+    if provider == "openai":
+        base["models"]["generator"] = os.environ.get("OPENAI_GENERATOR_MODEL", "gpt-4o-mini")
+        base["models"]["embedder"] = os.environ.get("OPENAI_EMBEDDER_MODEL", "text-embedding-3-small")
     return base
 
 

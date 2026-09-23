@@ -31,6 +31,10 @@ models:
   embedder: qwen3-embedding:0.6b
   embedder_strong_optional: qwen3-embedding:4b
 
+llm:
+  # Override with LLM_PROVIDER=openai in .env to use OPENAI_API_KEY.
+  provider: ollama
+
 ollama:
   base_url: http://localhost:11434
   temperature: 0

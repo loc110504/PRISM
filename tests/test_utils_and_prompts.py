@@ -5,10 +5,19 @@ from evodef.ollama_client import OllamaClient
 from evodef.prompt_templates import load_prompt_dir, load_prompt_template
 from evodef.retrieval.llm_reranker import rerank
 from evodef.schemas import StatuteChunk
-from evodef.utils import normalize_predicate, sha256_json, stable_sort_by_id, tokenize, write_jsonl, read_jsonl
+from evodef.utils import load_config, normalize_predicate, sha256_json, stable_sort_by_id, tokenize, write_jsonl, read_jsonl
 
 
 class TestUtils:
+    def test_openai_environment_overrides_models(self, monkeypatch):
+        monkeypatch.setenv("LLM_PROVIDER", "openai")
+        monkeypatch.setenv("OPENAI_GENERATOR_MODEL", "test-openai-generator")
+        monkeypatch.setenv("OPENAI_EMBEDDER_MODEL", "test-openai-embedder")
+        config = load_config()
+        assert config["llm"]["provider"] == "openai"
+        assert config["models"]["generator"] == "test-openai-generator"
+        assert config["models"]["embedder"] == "test-openai-embedder"
+
     def test_normalize_predicate_strips_args(self):
         assert normalize_predicate("foo(Person,Year)") == "foo"
         assert normalize_predicate("bare_flag") == "bare_flag"

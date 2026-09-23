@@ -1,5 +1,6 @@
 # Local Python environments and caches
 .venv/
+.env
 .pytest_cache/
 __pycache__/
 *.py[cod]
