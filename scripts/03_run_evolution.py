@@ -9,6 +9,7 @@ Pass --no-regression-gate to produce the ungated checkpoint used by the
 from __future__ import annotations
 
 import argparse
+import random
 import sys
 from pathlib import Path
 
@@ -110,9 +111,43 @@ def process_batch(config, chunks, prompt_variants, case_batch, current_norm, cur
     return proposed_norm, proposed_gap
 
 
+def select_evolution_cases(cases, max_cases: int | None, seed: int):
+    """Return a deterministic, label-balanced subset of evolution-train.
+
+    This is a compute-budget control for evolution only.  DEV and the
+    official TEST split remain unchanged; case identifiers are written to a
+    manifest so the learned checkpoint is reproducible and auditable.
+    """
+    if max_cases is None or max_cases >= len(cases):
+        return cases
+    if max_cases < 2:
+        raise ValueError("--max-evolution-cases must be at least 2")
+
+    by_label: dict[str, list] = {}
+    for case in cases:
+        by_label.setdefault(case.gold_label, []).append(case)
+    if len(by_label) != 2:
+        raise ValueError("Expected a binary, label-balanced evolution split")
+
+    rng = random.Random(seed)
+    selected = []
+    labels = sorted(by_label)
+    base, remainder = divmod(max_cases, len(labels))
+    for index, label in enumerate(labels):
+        pool = list(by_label[label])
+        rng.shuffle(pool)
+        selected.extend(pool[: base + (1 if index < remainder else 0)])
+    rng.shuffle(selected)
+    return selected
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--no-regression-gate", action="store_true", help="Accept every batch unconditionally (no_regression_gate ablation).")
+    parser.add_argument(
+        "--max-evolution-cases", type=int, default=None,
+        help="Deterministically use this many label-balanced evolution-train cases; DEV and TEST are untouched.",
+    )
     args = parser.parse_args()
 
     config = load_config()
@@ -120,9 +155,10 @@ def main() -> None:
     chunks, cases = load_corpus_and_cases(config)
     prompt_variants = load_frozen_prompt_variants(config, require_frozen=True)
 
-    evolution_cases = cases_by_split(cases, "evolution_train")
+    all_evolution_cases = cases_by_split(cases, "evolution_train")
+    evolution_cases = select_evolution_cases(all_evolution_cases, args.max_evolution_cases, config["seed"])
     dev_cases = cases_by_split(cases, "dev")
-    print(f"Evolving over {len(evolution_cases)} evolution-train cases, replaying on {len(dev_cases)} dev cases")
+    print(f"Evolving over {len(evolution_cases)}/{len(all_evolution_cases)} evolution-train cases, replaying on {len(dev_cases)} dev cases")
     print(f"Frozen prompt variants: {prompt_variants}")
     print(f"Regression gate: {'DISABLED (ablation)' if args.no_regression_gate else 'enabled'}")
 
@@ -133,6 +169,17 @@ def main() -> None:
     current_norm, current_gap = NormMemory(), GapMemory()
     checkpoints_dir = resolve_path(config, "checkpoints_dir")
     suffix = "_no_gate" if args.no_regression_gate else ""
+    write_json(
+        checkpoints_dir / f"evolution_sample_manifest{suffix}.json",
+        {
+            "selection": "deterministic_label_balanced_subset" if args.max_evolution_cases else "full_evolution_train",
+            "seed": config["seed"],
+            "available_evolution_train_cases": len(all_evolution_cases),
+            "selected_evolution_train_cases": len(evolution_cases),
+            "case_ids": [case.case_id for case in evolution_cases],
+            "labels": {label: sum(case.gold_label == label for case in evolution_cases) for label in sorted({case.gold_label for case in evolution_cases})},
+        },
+    )
 
     def save_checkpoint(pct: int) -> None:
         current_norm.save(checkpoints_dir / f"norm_memory_{pct}pct{suffix}.json")
