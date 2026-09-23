@@ -8,20 +8,40 @@ cd "$REPO_DIR"
 source .venv/bin/activate
 export PYTHONUNBUFFERED=1
 
+# Optional fast path for a previously prepared corpus and an existing DEV
+# prompt-tuning grid.  Defaults preserve the original exhaustive workflow.
+# Example:
+#   SKIP_DATA_PREPARATION=1 USE_EXISTING_PROMPT_BEST=1 EVOLUTION_MAX_CASES=50 \
+#     OLLAMA_HOST=http://host:11434 bash scripts/01_run_full_experiment.sh
+SKIP_DATA_PREPARATION="${SKIP_DATA_PREPARATION:-0}"
+USE_EXISTING_PROMPT_BEST="${USE_EXISTING_PROMPT_BEST:-0}"
+EVOLUTION_MAX_CASES="${EVOLUTION_MAX_CASES:-}"
+EVOLUTION_ARGS=()
+if [[ -n "$EVOLUTION_MAX_CASES" ]]; then
+  EVOLUTION_ARGS=(--max-evolution-cases "$EVOLUTION_MAX_CASES")
+fi
+
 if [[ -z "${OLLAMA_HOST:-}" ]]; then
   echo "Set OLLAMA_HOST to the reachable Ollama endpoint, e.g. http://host:11434" >&2
   exit 2
 fi
 
-# The only stage that downloads/rebuilds the official corpus. Omit it only if
-# data/processed is already known to match the desired SARA archive/seed.
-python scripts/00_prepare_sara.py
+# The only stage that downloads/rebuilds the official corpus. Set
+# SKIP_DATA_PREPARATION=1 only when data/processed is already known to match
+# the desired SARA archive/seed.
+if [[ "$SKIP_DATA_PREPARATION" != "1" ]]; then
+  python scripts/00_prepare_sara.py
+fi
 python scripts/01_build_index.py
 
 # Development-only selection, then evolution on evolution_train only.
-python scripts/02_tune_prompts_dev.py
-python scripts/03_run_evolution.py
-python scripts/03_run_evolution.py --no-regression-gate
+if [[ "$USE_EXISTING_PROMPT_BEST" == "1" ]]; then
+  python scripts/02_freeze_existing_prompt_winner.py --allow-incomplete-grid
+else
+  python scripts/02_tune_prompts_dev.py
+fi
+python scripts/03_run_evolution.py "${EVOLUTION_ARGS[@]}"
+python scripts/03_run_evolution.py --no-regression-gate "${EVOLUTION_ARGS[@]}"
 python scripts/04_freeze_checkpoint.py
 
 # Preflight must pass before the official held-out split is evaluated.
