@@ -331,6 +331,12 @@ class _RealOpenAIBackend:
                 "type": "json_schema",
                 "json_schema": {"name": "evodef_response", "schema": format, "strict": False},
             }
+        if (enable_thinking := os.environ.get("OPENAI_ENABLE_THINKING")) is not None:
+            # Not a standard OpenAI field (Qwen-family "thinking" toggle,
+            # e.g. Qwen3.8-Flash on Together); only sent when explicitly set
+            # via .env so providers/models that don't recognize it (like
+            # real OpenAI) never see an unexpected extra_body field.
+            kwargs["extra_body"] = {"enable_thinking": enable_thinking.strip().lower() in ("1", "true", "yes")}
         stream = self._client.chat.completions.create(**kwargs)
         content_parts: list[str] = []
         prompt_tokens = None
