@@ -59,9 +59,18 @@ def load_config(
     provider = os.environ.get("LLM_PROVIDER", base.get("llm", {}).get("provider", "ollama")).lower()
     if provider not in {"ollama", "openai"}:
         raise ValueError(f"Unsupported LLM_PROVIDER={provider!r}; expected 'ollama' or 'openai'.")
+    # Independent from `provider`: lets the generator run against an
+    # OpenAI-compatible API (e.g. Together) while embeddings stay on Ollama,
+    # or vice versa. Defaults to `provider` so single-backend setups are
+    # unaffected.
+    embed_provider = os.environ.get("LLM_EMBED_PROVIDER", base.get("llm", {}).get("embed_provider", provider)).lower()
+    if embed_provider not in {"ollama", "openai"}:
+        raise ValueError(f"Unsupported LLM_EMBED_PROVIDER={embed_provider!r}; expected 'ollama' or 'openai'.")
     base.setdefault("llm", {})["provider"] = provider
+    base["llm"]["embed_provider"] = embed_provider
     if provider == "openai":
         base["models"]["generator"] = os.environ.get("OPENAI_GENERATOR_MODEL", "gpt-4o-mini")
+    if embed_provider == "openai":
         base["models"]["embedder"] = os.environ.get("OPENAI_EMBEDDER_MODEL", "text-embedding-3-small")
     return base
 

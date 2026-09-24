@@ -60,6 +60,7 @@ def build_resources(
         max_network_retries=config["ollama"].get("max_network_retries", 2),
         network_retry_backoff_s=config["ollama"].get("network_retry_backoff_s", 5.0),
         provider=config.get("llm", {}).get("provider", "ollama"),
+        embed_provider=config.get("llm", {}).get("embed_provider"),
     )
     corpus = {c.chunk_id: c for c in chunks}
     bm25 = BM25Index.build(chunks)

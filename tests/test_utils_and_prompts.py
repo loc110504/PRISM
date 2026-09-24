@@ -15,8 +15,21 @@ class TestUtils:
         monkeypatch.setenv("OPENAI_EMBEDDER_MODEL", "test-openai-embedder")
         config = load_config()
         assert config["llm"]["provider"] == "openai"
+        assert config["llm"]["embed_provider"] == "openai"
         assert config["models"]["generator"] == "test-openai-generator"
         assert config["models"]["embedder"] == "test-openai-embedder"
+
+    def test_embed_provider_can_diverge_from_generator_provider(self, monkeypatch):
+        # e.g. generator on Together (via the openai-compatible provider)
+        # while embeddings stay on the local Ollama server.
+        monkeypatch.setenv("LLM_PROVIDER", "openai")
+        monkeypatch.setenv("LLM_EMBED_PROVIDER", "ollama")
+        monkeypatch.setenv("OPENAI_GENERATOR_MODEL", "test-openai-generator")
+        config = load_config()
+        assert config["llm"]["provider"] == "openai"
+        assert config["llm"]["embed_provider"] == "ollama"
+        assert config["models"]["generator"] == "test-openai-generator"
+        assert config["models"]["embedder"] == "qwen3-embedding:0.6b"
 
     def test_normalize_predicate_strips_args(self):
         assert normalize_predicate("foo(Person,Year)") == "foo"

@@ -78,17 +78,30 @@ class OllamaClient:
     max_network_retries: int = 2
     network_retry_backoff_s: float = 5.0
     provider: str = "ollama"
+    # Independent of `provider`: lets chat and embed calls target different
+    # backends (e.g. generator on an OpenAI-compatible API, embedder on
+    # Ollama). Defaults to `provider` when unset.
+    embed_provider: str | None = None
     _backend: Any = None
+    _embed_backend: Any = None
     last_calls: list[LLMCallRecord] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         if self._backend is None:
-            if self.provider == "ollama":
-                self._backend = _RealOllamaBackend(self.base_url, self.request_timeout_s)
-            elif self.provider == "openai":
-                self._backend = _RealOpenAIBackend(self.request_timeout_s)
-            else:
-                raise ValueError(f"Unsupported provider: {self.provider!r}")
+            self._backend = self._build_backend(self.provider)
+        if self._embed_backend is None:
+            effective_embed_provider = self.embed_provider or self.provider
+            self._embed_backend = (
+                self._backend if effective_embed_provider == self.provider
+                else self._build_backend(effective_embed_provider)
+            )
+
+    def _build_backend(self, provider: str) -> Any:
+        if provider == "ollama":
+            return _RealOllamaBackend(self.base_url, self.request_timeout_s)
+        if provider == "openai":
+            return _RealOpenAIBackend(self.request_timeout_s)
+        raise ValueError(f"Unsupported provider: {provider!r}")
 
     # ------------------------------------------------------------------
     def _call_with_retry(self, fn: Any, /, **kwargs: Any) -> dict[str, Any] | None:
@@ -240,7 +253,7 @@ class OllamaClient:
     def embed(self, model: str, texts: list[str]) -> list[list[float]]:
         if not texts:
             return []
-        response = self._call_with_retry(self._backend.embed, model=model, input=texts)
+        response = self._call_with_retry(self._embed_backend.embed, model=model, input=texts)
         if response is None:
             raise RuntimeError(
                 f"Ollama embed call for model {model!r} failed after "

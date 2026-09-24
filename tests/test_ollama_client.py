@@ -139,3 +139,17 @@ class TestEmbed:
     def test_empty_input_returns_empty(self):
         client = OllamaClient(_backend=FakeOllamaBackend())
         assert client.embed("embed-model", []) == []
+
+    def test_defaults_to_same_backend_as_chat_when_unset(self):
+        backend = FakeOllamaBackend(embed_vectors={"a": [1.0, 2.0]})
+        client = OllamaClient(_backend=backend)
+        client.embed("embed-model", ["a"])
+        assert client._embed_backend is backend
+
+    def test_uses_separate_embed_backend_when_provided(self):
+        chat_backend = FakeOllamaBackend(responses=[json_response({"value": 1})])
+        embed_backend = FakeOllamaBackend(embed_vectors={"a": [9.0, 9.0]})
+        client = OllamaClient(_backend=chat_backend, _embed_backend=embed_backend)
+        vectors = client.embed("embed-model", ["a"])
+        assert vectors == [[9.0, 9.0]]
+        assert embed_backend.calls and not chat_backend.calls
