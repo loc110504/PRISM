@@ -31,6 +31,14 @@ class TestUtils:
         assert config["models"]["generator"] == "test-openai-generator"
         assert config["models"]["embedder"] == "qwen3-embedding:0.6b"
 
+    def test_ollama_embedder_model_env_override(self, monkeypatch):
+        monkeypatch.setenv("LLM_PROVIDER", "openai")
+        monkeypatch.setenv("LLM_EMBED_PROVIDER", "ollama")
+        monkeypatch.setenv("OLLAMA_EMBEDDER_MODEL", "qwen3-embedding:4b")
+        config = load_config()
+        assert config["llm"]["embed_provider"] == "ollama"
+        assert config["models"]["embedder"] == "qwen3-embedding:4b"
+
     def test_normalize_predicate_strips_args(self):
         assert normalize_predicate("foo(Person,Year)") == "foo"
         assert normalize_predicate("bare_flag") == "bare_flag"

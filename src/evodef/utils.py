@@ -72,6 +72,8 @@ def load_config(
         base["models"]["generator"] = os.environ.get("OPENAI_GENERATOR_MODEL", "gpt-4o-mini")
     if embed_provider == "openai":
         base["models"]["embedder"] = os.environ.get("OPENAI_EMBEDDER_MODEL", "text-embedding-3-small")
+    elif embed_provider == "ollama" and "OLLAMA_EMBEDDER_MODEL" in os.environ:
+        base["models"]["embedder"] = os.environ["OLLAMA_EMBEDDER_MODEL"]
     return base
 
 

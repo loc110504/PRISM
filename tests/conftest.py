@@ -61,3 +61,22 @@ def json_response(payload: dict[str, Any]) -> dict[str, Any]:
 @pytest.fixture
 def repo_root() -> Path:
     return REPO_ROOT
+
+
+_LLM_ENV_VARS = [
+    "LLM_PROVIDER", "LLM_EMBED_PROVIDER", "OLLAMA_HOST", "OLLAMA_EMBEDDER_MODEL",
+    "OPENAI_API_KEY", "OPENAI_BASE_URL", "OPENAI_GENERATOR_MODEL", "OPENAI_EMBEDDER_MODEL",
+]
+
+
+@pytest.fixture(autouse=True)
+def _isolated_llm_env(monkeypatch):
+    """`load_config()` reads the repo's real `.env` by default (root=REPO_ROOT),
+    which would otherwise leak a developer's own LLM_PROVIDER/OPENAI_*/OLLAMA_*
+    choices into every test that calls `load_config()` without explicitly
+    overriding them. Stub out the `.env` read entirely so tests only ever see
+    what they monkeypatch themselves, regardless of the real `.env` content.
+    """
+    for key in _LLM_ENV_VARS:
+        monkeypatch.delenv(key, raising=False)
+    monkeypatch.setattr("evodef.utils.load_dotenv", lambda path: None)
