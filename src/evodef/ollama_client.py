@@ -316,19 +316,37 @@ class _RealOpenAIBackend:
             "model": model,
             "messages": messages,
             "temperature": (options or {}).get("temperature", 0),
+            # Always stream: some OpenAI-compatible endpoints (e.g. certain
+            # Together AI passthrough models) reject non-streaming requests
+            # outright ("This model only supports streaming"), while
+            # streaming a model that doesn't require it works the same as a
+            # normal call - just reassembled into one response below, since
+            # every OllamaClient method is written against a single
+            # request/response shape, not a stream.
+            "stream": True,
+            "stream_options": {"include_usage": True},
         }
         if format is not None:
             kwargs["response_format"] = {
                 "type": "json_schema",
                 "json_schema": {"name": "evodef_response", "schema": format, "strict": False},
             }
-        result = self._client.chat.completions.create(**kwargs)
-        message = result.choices[0].message
-        usage = result.usage
+        stream = self._client.chat.completions.create(**kwargs)
+        content_parts: list[str] = []
+        prompt_tokens = None
+        completion_tokens = None
+        for chunk in stream:
+            if chunk.choices:
+                delta = chunk.choices[0].delta
+                if delta is not None and delta.content:
+                    content_parts.append(delta.content)
+            if chunk.usage is not None:
+                prompt_tokens = chunk.usage.prompt_tokens
+                completion_tokens = chunk.usage.completion_tokens
         return {
-            "message": {"content": message.content or ""},
-            "prompt_eval_count": usage.prompt_tokens if usage else None,
-            "eval_count": usage.completion_tokens if usage else None,
+            "message": {"content": "".join(content_parts)},
+            "prompt_eval_count": prompt_tokens,
+            "eval_count": completion_tokens,
         }
 
     def embed(self, model: str, input: list[str]) -> dict:
